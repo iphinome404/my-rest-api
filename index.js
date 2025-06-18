@@ -31,7 +31,7 @@ function verboseError(res, code, msg) {
 }
 
 function processError(res, code) {
-    //Function to parse an error code and output it in human readable form to the verboseError function
+    //Function to parse an error code and output it in human readable format and then send to the verboseError function
     //Input res, and the nodejs error code
     if (!code) {
         //On the chance that the error.code we've been sent is empty, throw an http 500 error.
@@ -89,7 +89,7 @@ function processError(res, code) {
 
 app.get(API_PATH, (req, res) => {
     console.log(req.params);
-    //What to do when the server receives an http GET request
+    //Method for handling http GET requests
     //Input API_PATH and the resource requested in the format of folder/file
 
     const filePath = path.normalize(req.params.folder + "/" + req.params.file + ".json");
@@ -134,7 +134,7 @@ app.get(API_PATH, (req, res) => {
 });
 
 app.post(API_PATH, (req, res) => {
-    //What to do when the server gets an http POST request
+    //Method for handling http POST requests
     //The request parameter should be formated as /folder/file
     //add a debugging line here to echo the request to the console for checking
 
@@ -194,8 +194,70 @@ app.post(API_PATH, (req, res) => {
     })
 })
 
+app.delete(API_PATH, (req, res) => {
+    //Method for handling http DELETE requests
+    //Input API_PATH and the resource requested in the format of folder/file without an extension as we only work with.json
 
-/// do app.delete next
+    const filePath = path.normalize(req.params.folder + "/" + req.params.file + ".json");
+    //Normalize the path and add.json as that's the only file type this api handles
+
+    const folderPath = path.normalize(req.params.folder);
+    //Extra constant to hold just the path to the folder, this avoids the overhead of string manipulation functions
+
+    //possible directory traversal protection to be written later
+
+    fs.stat(req.params.folder, (error, stats) => {
+        //Check if the folder we're trying to look inside exists.
+        if (error) {
+            //On error throw the correct error code to the processError function
+            processError(res, error.code);
+            return;
+            //retrun as we have nothing to delete
+        }
+
+        if (!stats.isDirectory()) {
+            //Make sure the folder we're trying to peek inside _is_ a folder, not a file
+            res.status(422).json({code: 422, error: 'Unprocessable Content'});
+            return;
+            //If it's not a folder, throw an error
+        }
+
+        fs.unlink(filePath, (error, data) => {
+            //Delete the json with the name requested in filePath, we always append .json so no attacker
+            //should be able to delete other file extensions
+            if (error) {
+                //Attempt to delete the file, throw an error code to the processError function if it doesn't work
+                processError(res, error.code);
+                return;
+            }
+            //File either didnt' exist or is now deleted but we're sitll inside the unlink
+            fs.readdir(folderPath, (error, files) => {
+                //Read the contents of folderPath to see if the folder is now empty
+                if (error) {
+                    //Throw an error code if for some reaosn we were able to delete a fiel but not read the folder contents
+                    processError(res, error.code);
+                    return;
+                }
+                if (!files.length) {
+                    //If the folder is empty, delete it, it's no longer needed
+                    fs.rmdir(folderPath, (error) => {
+                        if (error) {
+                            //The file was deleted so report partial success
+                            res.status(200).json({ message: 'File deleted'});
+                            return;
+                        }
+                        //Return that both the file and folder were deleted
+                        res.status(200).json({ message: 'File and folder deleted'});
+                    });
+                } else {
+                    //No Errors, report success
+                    res.status(200).json({ message: 'File deleted'});
+                }
+            });
+        });
+
+    });
+});
 
 let functioning = app.listen(listenPort, () => {
     console.log("Listening on " + listenPort);

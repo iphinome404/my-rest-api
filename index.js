@@ -1,6 +1,10 @@
 const fs = require('fs');
 //Required for filesystem access
 const path = require('path');
+//Needed for path.normalize
+
+const projectRoot = __dirname;
+//Needed for when I add director traversel proteciton
 
 const API_PATH = "/:folder/:file";
 //Request files with a name not an extension so as always to return .json
@@ -16,11 +20,13 @@ const listenPort = 3000
 
 let jsonHolder = [];
 
-//placeholder to hold our json in memory
+//Placeholder to hold our json in memory
+//Possibly no longer needed, keeping for now.
 
 function verboseError(res, code, msg) {
     //function to receive error codes and output them in json format
     //input res, the http code to use and the response message
+    //It might be more secure to be _less_ verbose in the production rather than a development envrioment.
     res.status(code).json({code, error: msg});
 }
 
@@ -29,7 +35,7 @@ function processError(res, code) {
     //Input res, and the nodejs error code
     if (!code) {
         //On the chance that the error.code we've been sent is empty, throw an http 500 error.
-        //this should be covered by the defualt ending in the switch statement but it handles edge cases
+        //this should be covered by the default ending in the switch statement but it handles edge cases
         verboseError(res, 500, 'Unknown error occurred');
         return;
     }
@@ -89,6 +95,8 @@ app.get(API_PATH, (req, res) => {
     const filePath = path.normalize(req.params.folder + "/" + req.params.file + ".json");
     //Normalize the path and add.json as that's the only file type this api handles
 
+    //possible directory traversal protection to be written later
+
     fs.stat(req.params.folder, (error, stats) => {
         //Check if the folder we're trying to get exists.
         if (error) {
@@ -98,7 +106,7 @@ app.get(API_PATH, (req, res) => {
         }
 
         if (!stats.isDirectory()) {
-            //Make sure the folder we're trying to get us a folder, not a file
+            //Make sure the folder we're trying to get _is_ a folder, not a file
             res.status(422).json({code: 422, error: 'Unprocessable Content'});
             return;
             //If it's not a folder, throw an error
@@ -117,8 +125,9 @@ app.get(API_PATH, (req, res) => {
                 res.status(200).json(json);
                 //Reply with the contents of the json we requested
             } catch (parseError) {
-                //Send an error if the JSON is invalid
+                //Send an parse error if the JSON is invalid
                 processError(res, 'EJSONPARSE');
+            }
         });
 
     });
@@ -128,14 +137,21 @@ app.post(API_PATH, (req, res) => {
     //What to do when the server gets an http POST request
     //The request parameter should be formated as /folder/file
     //add a debugging line here to echo the request to the console for checking
-    
-    const filePath = path.normalize(req.params.folder + "/" + req.params.file + ".json");
 
+    const filePath = path.normalize(req.params.folder + "/" + req.params.file + ".json");
     //Normalize the path and add.json as that's the only file type this api handles
-    
-    const jsonHolder = req.body;
-    
+    //directory traversel proteciotn to be added later.
+
+    let jsonHolder;
     //Holding container in memory for the body of the request
+    try {
+        //Try JSON.stringify to verify input can be expressed as JSON
+        jsonHolder = JSON.stringify(req.body);
+    } catch (error) {
+        processError(res, 'EJSONPARSE');
+        return;
+    }
+
 
     fs.stat(req.params.folder, (error, stats) => {
         //Check if the folder currently exists, if not, create it.
@@ -148,33 +164,36 @@ app.post(API_PATH, (req, res) => {
                         processError(res, error.code);
                         return;
                     }
-                    fs.writeFile(filePath, JSON.stringify(jsonHolder), error => {
-                        //Write the contents of our holder array as a
+                    fs.writeFile(filePath, jsonHolder, error => {
+                        //We made the folder now its async so we write the file here
+                        //Write the contents of our holder array as a json
                         if (error) {
+                            //Call processError if we don't have write permission
                             processError(res, error.code);
                             return;
-                        } else res.status(201).json(jsonHolder);
+                        } else res.status(201).json(req.body);
+                        //Since it passed the stringify test we cna just send back req.body
                     });
-
-                    //we made the folder now its async so we write the file here
                 });
-            } else if (error.code === 'EACCES') {
-                //Folder exists, but we don't have permission to access it, throw an error
-                verboseError(res, 403, 'Permission denied');
-                return;
             } else {
-                //For any other error, throw 'Server Error'
-                verboseError(res, 500, 'Server error');
+                processError(res, error.code);
                 return;
             }
-
-
+        } else {
+            //if the folder exists put the write here...
+            fs.writeFile(filePath, jsonHolder, error => {
+                //Since the folder exists, write jsonHolder as a json file
+                if (error) {
+                    //Call processError if we don't have write permission
+                    processError(res, error.code);
+                    return;
+                } else res.status(201).json(req.body);
+                //Since it passed the stringify test we can just send back req.body
+            });
         }
-
-        // uneeded right now res.status(201).json(jsonHolder);
-        //placeholder that uses our jsonHolder array
     })
-});
+})
+
 
 /// do app.delete next
 

@@ -26,7 +26,7 @@ const listenPort = 3000
 function inputValidate(input) {
     //Function to verify if the input we're receiveing matches the expected file format
     //Currently this api only uses json files and JSON.stringify covers all use cases but
-    //keeping inside a validate function allows easy adaption for more formats
+    //keeping this inside a validate function allows easy adaption for more formats later
     //Expected input is a string to validate, outputs false on error.
     try {
         return JSON.stringify(input);
@@ -40,10 +40,10 @@ function inputValidate(input) {
 //Error and success handling Functions
 
 function verboseSuccess(res, code, data) {
-    //Function to recicve success codes and output them in json format
+    //Function to recieve success codes and output them in json format
     //Creating a function allows future changes to the output format to be centralized
     //Input res, the http code to use and the data we're sending back.
-    res.status(code).json({code, data});
+    res.status(code).json(data);
 }
 
 function verboseError(res, code, msg) {
@@ -68,6 +68,10 @@ function processError(res, code) {
         case 'ENAMETOOLONG':
             verboseError(res, 400, 'Name too long');
             break;
+        case 'EJSONPARSE':
+            //Custom error code for handling JSON files
+            verboseError(res, 400, 'Invalid JSON format');
+            break;
         case 'ENOENT':
             verboseError(res, 404, 'Not found');
             break;
@@ -80,17 +84,17 @@ function processError(res, code) {
         case 'EROFS':
             verboseError(res, 403, 'Read only file system');
             break;
-        case 'EJSONPARSE':
-            verboseError(res, 400, 'Invalid JSON format');
-            break;
         case 'EISDIR':
-            verboseError(res, 405, 'Is a directory');
+            verboseError(res, 403, 'Is a directory');
             break;
         case 'EBADF':
             verboseError(res, 406, 'Bad file descriptor');
             break;
         case 'EMFILE':
             verboseError(res, 409, 'Too many open files');
+            break;
+        case 'EEXIST':
+            verboseError(res, 409, 'File already exists');
             break;
         case 'ERR_FS_FILE_TOO_LARGE':
             verboseError(res, 413, 'Too large');
@@ -112,7 +116,6 @@ function processError(res, code) {
 };
 
 app.get(API_PATH, (req, res) => {
-    console.log(req.params);
     //Method for handling http GET requests
     //Input API_PATH and the resource requested in the format of folder/file
 
@@ -128,7 +131,7 @@ app.get(API_PATH, (req, res) => {
             processError(res, error.code);
             return;
         }
-        
+
         if (!stats.isDirectory()) {
             //Make sure the folder we're trying to get _is_ a folder, not a file
             processError(res, 'ENOTDIR');
@@ -164,8 +167,8 @@ app.post(API_PATH, (req, res) => {
 
     const filePath = path.normalize(req.params.folder + "/" + req.params.file + ".json");
     //Normalize the path and add.json as that's the only file type this api handles
-    
-    //TODO: directory traversal proteciotn
+
+    //TODO: directory traversal protection
 
     const fileHolder = inputValidate(req.body)
     if (!fileHolder) {
@@ -200,15 +203,23 @@ app.post(API_PATH, (req, res) => {
                 return;
             }
         } else {
-            //If the folder exists put the write here...
-            fs.writeFile(filePath, fileHolder, error => {
-                //Since the folder exists, write req.body as a file
-                if (error) {
-                    //Call processError if we don't have write permission
-                    processError(res, error.code);
+            //If the folder exists, do a quick check to see if the file already exists
+            fs.stat(filePath, (error, stats) => {
+                if (!error) {
+                    //Throw a file already exists error, we don't overwrite in POST, only in PUT
+                    processError(res, 'EEXIST');
                     return;
-                } else verboseSuccess(res, 201, req.body);
-                //Since it passed the stringify test we can just send back req.body
+                }
+                //If the folder exists but not the file then we're clear to write
+                fs.writeFile(filePath, fileHolder, error => {
+                    //Since the folder exists, write req.body as a file
+                    if (error) {
+                        //Call processError if we don't have write permission
+                        processError(res, error.code);
+                        return;
+                    } else verboseSuccess(res, 201, req.body);
+                    //Since it passed the validation test we can just send back req.body
+                });
             });
         }
     })
@@ -279,15 +290,73 @@ app.delete(API_PATH, (req, res) => {
     });
 });
 
-//TODO app.put here
-//follow  the practices outlined in rfc 7231 (http 1.1)
+app.put(API_PATH, (req, res) => {
+    //Method for handling http PUT requests
+    //The request parameter should be formated as /folder/file
+    //Rfc 7231 (http 1.1) requires creating the file if it doesn't already exist
+
+    //TODO: add a debugging line here to echo the request to the console for testing
+
+    const filePath = path.normalize(req.params.folder + "/" + req.params.file + ".json");
+    //Normalize the path and add.json as that's the only file type this api handles
+
+    //TODO: directory traversal proteciotn
+
+    const fileHolder = inputValidate(req.body)
+    if (!fileHolder) {
+        processError(res, 'EJSONPARSE');
+        return;
+    }
+
+    fs.stat(req.params.folder, (error, stats) => {
+        //Check if the folder currently exists, if not, create it.
+        if (error) {
+            if (error.code === 'ENOENT') {
+                //If the folder doesn't already exist, create it
+                fs.mkdir(req.params.folder, error => {
+                    //Call processError if we don't have write permission
+                    if (error) {
+                        processError(res, error.code);
+                        return;
+                    }
+                    fs.writeFile(filePath, fileHolder, error => {
+                        //We made the folder now its async so we write the file here
+                        //Write the contents of the request body (which has been validated)
+                        if (error) {
+                            //Call processError if we don't have write permission
+                            processError(res, error.code);
+                            return;
+                        } else verboseSuccess(res, 201, req.body);
+                        //Since it passed the validation test we can just send back req.body
+                        //RFC7231 says send back 201 for a new creation
+                    });
+                });
+            } else {
+                processError(res, error.code);
+                return;
+            }
+        } else {
+            //If the folder exists put the write here...
+            fs.writeFile(filePath, fileHolder, error => {
+                //Since the folder exists, write req.body as a file
+                if (error) {
+                    //Call processError if we don't have write permission
+                    processError(res, error.code);
+                    return;
+                } else verboseSuccess(res, 200, req.body);
+                //Since it passed the validation test we can just send back req.body
+            });
+        }
+    })
+});
+
 
 app.use((req, res) => {
-    //Fallback function to throw a 404 for any request that isn't already handlded
+    //Fallback function to throw a 404 for any request that isn't already handled
     processError(res, 'ENOENT');
 });
 
-let functioning = app.listen(listenPort, () => {
+const functioning = app.listen(listenPort, () => {
     console.log("Listening on " + listenPort);
     //start our server listening for http requests
 });

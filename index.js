@@ -1,4 +1,7 @@
-//TODO more helper functions to make get post put and delete more generic
+// In-progress project
+// Simple REST API implementing all basic CRUD operations
+// Currently handles only JSON files, with filesystem-based storage
+// Written for learning purposes — expect rough edges, work-in-progress features, and lots of comments
 
 const fs = require('fs');
 //Required for filesystem access
@@ -6,7 +9,7 @@ const path = require('path');
 //Needed for path.normalize
 
 //const projectRoot = __dirname;
-//Needed for when I add director traversel proteciton
+//Needed for future directory traversel proteciton
 
 const API_PATH = "/:folder/:file";
 //Request files with a name not an extension so as always to return .json
@@ -20,14 +23,16 @@ app.use(express.json());
 const listenPort = 3000
 //We may devise a way to find an open port to listen on and define it here later
 
+//TODO write more utility functions
+
 //Utility Functions
 
 
 function inputValidate(input) {
-    //Function to verify if the input we're receiveing matches the expected file format
-    //Currently this api only uses json files and JSON.stringify covers all use cases but
-    //keeping this inside a validate function allows easy adaption for more formats later
-    //Expected input is a string to validate, outputs false on error.
+    //Function to validate that 'input' contains an acceptable file format.
+    //inputValidate returns false for unacceptable types.
+    //Currently, only JSON is accepted.
+    //Keeping this inside a validate function allows easier adaption for more file formats later
     try {
         return JSON.stringify(input);
         //Try to return the input stringified
@@ -40,15 +45,16 @@ function inputValidate(input) {
 //Error and success handling Functions
 
 function verboseSuccess(res, code, data) {
-    //Function to recieve success codes and output them in json format
-    //Creating a function allows future changes to the output format to be centralized
-    //Input res, the http code to use and the data we're sending back.
+    //Function to handle success responses and output them in JSON format.
+    //Using a dedicated function means any future changes to success formatting can be made in one place.
+    //Inputs: the response object, code – the HTTP status code, data – the response payload.
     res.status(code).json(data);
 }
 
 function verboseError(res, code, msg) {
-    //function to receive error codes and output them in json format
-    //input res, the http code to use and the response message
+    //Function to receive error codes and output them in JSON format
+    //Creating a deticated function allows future changes to the output format to be centralized
+    //input res, the HTTP code to use, and the response message
     //It might be more secure to be _less_ verbose in the production rather than a development envrioment.
     res.status(code).json({code, error: msg});
 };
@@ -57,13 +63,14 @@ function processError(res, code) {
     //Function to parse an error code and output it in human readable format and then send to the verboseError function
     //Input res, and the nodejs error code
     if (!code) {
-        //On the chance that the error.code we've been sent is empty, throw an http 500 error.
-        //This should be covered by the default ending in the switch statement but handles edge cases
+        //Check if the error.code is empty or at least falsey, throw an http 500 error.
+        //This should be covered by the default ending in the switch statement but handles edge cases.
         verboseError(res, 500, 'Unknown error occurred');
         return;
     }
     switch (code) {
-        //Process individual error codes and default to 500 internal server error if none match
+        //Aceepts the error code (expecting a string) and checks against the known list and sends information
+        //to the verboseError function. It leave error handling and error reporting as discreet actions.
         //This should be sorted by likelyhood of error, but a list by http code is easier for debugging purposes
         case 'ENAMETOOLONG':
             verboseError(res, 400, 'Name too long');
@@ -115,19 +122,22 @@ function processError(res, code) {
     return;
 };
 
+//Main API functions
+
 app.get(API_PATH, (req, res) => {
-    //Method for handling http GET requests
-    //Input API_PATH and the resource requested in the format of folder/file
+    //Method for handling http GET requests.
+    //The request should be formated as /folder/file
+    //Per RFC 7231, all HTTP servers must respond to GET and HEAD requests
 
     const filePath = path.normalize(req.params.folder + "/" + req.params.file + ".json");
-    //Normalize the path and add.json as that's the only file type this api handles
+    //Normalize the requested file path and append '.json' since this API handles only JSON files.
 
     //TODO: possible directory traversal protection
 
     fs.stat(req.params.folder, (error, stats) => {
         //Check if the folder we're trying to get exists.
         if (error) {
-            //On error throw the correct error code to the processError function
+            //On error throw the error code to the processError function
             processError(res, error.code);
             return;
         }
@@ -162,25 +172,29 @@ app.get(API_PATH, (req, res) => {
 
 app.post(API_PATH, (req, res) => {
     //Method for handling http POST requests
-    //The request parameter should be formated as /folder/file
+    //The request should be formated as /folder/file
     //add a debugging line here to echo the request to the console for checking
 
     const filePath = path.normalize(req.params.folder + "/" + req.params.file + ".json");
-    //Normalize the path and add.json as that's the only file type this api handles
+    //Normalize the requested file path and append '.json' since this API handles only JSON files.
 
     //TODO: directory traversal protection
 
     const fileHolder = inputValidate(req.body)
+    //Validate that req.body contains an acceptable file format.
+    //inputValidate returns false for unacceptable types.
+    //Currently, only JSON is accepted.
     if (!fileHolder) {
         processError(res, 'EJSONPARSE');
+        //'EJSONPARSE' is a custom error code for handling JSON files
         return;
     }
 
     fs.stat(req.params.folder, (error, stats) => {
-        //Check if the folder currently exists, if not, create it.
+        //Check if the requested folder currently exists
         if (error) {
             if (error.code === 'ENOENT') {
-                //If the folder doesn't already exist, create it
+                //If the folder does not exist, create it
                 fs.mkdir(req.params.folder, error => {
                     //Call processError if we don't have write permission
                     if (error) {
@@ -195,10 +209,12 @@ app.post(API_PATH, (req, res) => {
                             processError(res, error.code);
                             return;
                         } else verboseSuccess(res, 201, req.body);
-                        //Since it passed the stringify test we can just send back req.body
+                        //Report success by sending back req.body
+                        //RFC7231 specifies using status code 201 for new file creations
                     });
                 });
             } else {
+                //Call processError for all other errors
                 processError(res, error.code);
                 return;
             }
@@ -206,11 +222,12 @@ app.post(API_PATH, (req, res) => {
             //If the folder exists, do a quick check to see if the file already exists
             fs.stat(filePath, (error, stats) => {
                 if (!error) {
-                    //Throw a file already exists error, we don't overwrite in POST, only in PUT
+                    //Throw a file already exists error,
+                    //RFC7231 specifies that HTTP PUT, not POST, should be used to overwrite.
                     processError(res, 'EEXIST');
                     return;
                 }
-                //If the folder exists but not the file then we're clear to write
+                //If the folder exists but not the file then write using fileHolder
                 fs.writeFile(filePath, fileHolder, error => {
                     //Since the folder exists, write req.body as a file
                     if (error) {
@@ -218,7 +235,8 @@ app.post(API_PATH, (req, res) => {
                         processError(res, error.code);
                         return;
                     } else verboseSuccess(res, 201, req.body);
-                    //Since it passed the validation test we can just send back req.body
+                    //Report success by sending back req.body
+                    //RFC7231 specifies using status code 201 for new file creations
                 });
             });
         }
@@ -230,7 +248,7 @@ app.delete(API_PATH, (req, res) => {
     //Input API_PATH and the resource requested in the format of folder/file without an extension as we only work with.json
 
     const filePath = path.normalize(req.params.folder + "/" + req.params.file + ".json");
-    //Normalize the path and add.json as that's the only file type this api handles
+    //Normalize the requested file path and append '.json' since this API handles only JSON files.
 
     const folderPath = path.normalize(req.params.folder);
     //Extra constant to hold just the path to the folder, this avoids the overhead of string manipulation functions
@@ -270,14 +288,14 @@ app.delete(API_PATH, (req, res) => {
                     return;
                 }
                 if (!files.length) {
-                    //If the folder is empty, delete it, it's no longer needed
                     fs.rmdir(folderPath, (error) => {
+                        //Delete the folder if it is empty
                         if (error) {
                             //The file was deleted so report partial success
                             verboseSuccess(res, 200, 'File deleted');
                             return;
                         }
-                        //Return that both the file and folder were deleted
+                        //Report success. Both the file and folder were deleted
                         verboseSuccess(res, 200, 'File and folder deleted');
                     });
                 } else {
@@ -291,44 +309,45 @@ app.delete(API_PATH, (req, res) => {
 });
 
 app.put(API_PATH, (req, res) => {
-    //Method for handling http PUT requests
-    //The request parameter should be formated as /folder/file
-    //Rfc 7231 (http 1.1) requires creating the file if it doesn't already exist
-
-    //TODO: add a debugging line here to echo the request to the console for testing
+    //Handles HTTP PUT requests. Expects request path as /folder/file.
+    //Per RFC 7231, creates the file if it doesn't exist.
 
     const filePath = path.normalize(req.params.folder + "/" + req.params.file + ".json");
-    //Normalize the path and add.json as that's the only file type this api handles
+    //Normalize the requested file path and append '.json' since this API handles only JSON files.
 
-    //TODO: directory traversal proteciotn
+    //TODO: directory traversal protection
 
     const fileHolder = inputValidate(req.body)
+    //Validate that req.body contains an acceptable file format.
+    //inputValidate returns false for unacceptable types.
+    //Currently, only JSON is accepted.
     if (!fileHolder) {
         processError(res, 'EJSONPARSE');
+        //'EJSONPARSE' is a custom error code for handling JSON files
         return;
     }
 
     fs.stat(req.params.folder, (error, stats) => {
-        //Check if the folder currently exists, if not, create it.
+        //Check if the requested folder currently exists, if not, create it.
         if (error) {
             if (error.code === 'ENOENT') {
-                //If the folder doesn't already exist, create it
                 fs.mkdir(req.params.folder, error => {
-                    //Call processError if we don't have write permission
                     if (error) {
+                        //Call processError if write permission is denied
                         processError(res, error.code);
                         return;
                     }
                     fs.writeFile(filePath, fileHolder, error => {
-                        //We made the folder now its async so we write the file here
-                        //Write the contents of the request body (which has been validated)
+                        //Folder created asynchronously. The write call is nested inside the mkdir callback.
+                        //Write the validated contents to the file.
                         if (error) {
-                            //Call processError if we don't have write permission
+                            //Call processError if write permission is denied
                             processError(res, error.code);
                             return;
-                        } else verboseSuccess(res, 201, req.body);
-                        //Since it passed the validation test we can just send back req.body
-                        //RFC7231 says send back 201 for a new creation
+                        } else
+                            verboseSuccess(res, 201, req.body);
+                        //Report success by sending back req.body
+                        //RFC7231 specifies using status code 201 for new file creations
                     });
                 });
             } else {
@@ -336,33 +355,63 @@ app.put(API_PATH, (req, res) => {
                 return;
             }
         } else {
-            //If the folder exists put the write here...
             fs.writeFile(filePath, fileHolder, error => {
-                //Since the folder exists, write req.body as a file
+                //If the already folder exists, write the validated file.
                 if (error) {
-                    //Call processError if we don't have write permission
+                    //Call processError if write permission is denied
                     processError(res, error.code);
                     return;
                 } else verboseSuccess(res, 200, req.body);
-                //Since it passed the validation test we can just send back req.body
+                //Report success by sending back req.body
             });
         }
     })
 });
 
+app.head(API_PATH, (req, res) => {
+    //Handles HTTP HEAD requests. Expects request path as /folder/file.
+    //Per RFC 7231, all HTTP servers must respond to both GET and HEAD
+
+    const filePath = path.normalize(req.params.folder + "/" + req.params.file + ".json");
+    //Normalize the requested file path and append '.json' since this API handles only JSON files.
+
+    //TODO: possible directory traversal protection
+
+    fs.stat(filePath, (error, stats) => {
+        //See if the file exists
+        if (error) {
+            processError(res, error.code);
+            //Throw any errors to the processError function. (likely 404)
+            return;
+        }
+
+        //TODO: Output function that detects file format dynamically.
+        //Current API only handles JSON files
+        res.status(200).set({
+            //.set is used to set HTTP headers
+            'Content-Type': 'application/json',
+            'Content-Length': stats.size,
+        }).end();
+        //.end is required to end the connection without sending a body
+        //Expceted, per RFC 7231
+    });
+});
 
 app.use((req, res) => {
-    //Fallback function to throw a 404 for any request that isn't already handled
+    //This function serves as a simple catch-all for malformed requests
+    //Throws a simple 404, not found for any request the API isn't designed to process.
     processError(res, 'ENOENT');
 });
 
+//Start up functions
+
 const functioning = app.listen(listenPort, () => {
+    //Starts the webserver listening on the specified TCP port (listenPort).
     console.log("Listening on " + listenPort);
-    //start our server listening for http requests
 });
 
-//Throw an error if listening doesn't work
 functioning.on('error', error => console.log(error));
+//Throws an error to the console if for any reason the server isn't listening.
 
 
 

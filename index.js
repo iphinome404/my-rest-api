@@ -1,7 +1,7 @@
-// In-progress project
-// Simple REST API implementing all basic CRUD operations
-// Currently handles only JSON files, with filesystem-based storage
-// Written for learning purposes — expect rough edges, work-in-progress features, and lots of comments
+//In-progress project
+//Simple REST API implementing all basic CRUD operations
+//Currently handles only JSON files, with filesystem-based storage
+//Written for learning purposes — expect rough edges, work-in-progress features, and lots of comments
 
 const fs = require('fs');
 //Required for filesystem access
@@ -27,7 +27,6 @@ const listenPort = 3000
 
 //Utility Functions
 
-
 function inputValidate(input) {
     //Function to validate that 'input' contains an acceptable file format.
     //inputValidate returns false for unacceptable types.
@@ -38,7 +37,7 @@ function inputValidate(input) {
         //Try to return the input stringified
     } catch {
         return false;
-        //otherwise return false
+        //If input isn't in a valid file format, return 'false'
     }
 }
 
@@ -54,8 +53,8 @@ function verboseSuccess(res, code, data) {
 function verboseError(res, code, msg) {
     //Function to receive error codes and output them in JSON format
     //Creating a deticated function allows future changes to the output format to be centralized
-    //input res, the HTTP code to use, and the response message
-    //It might be more secure to be _less_ verbose in the production rather than a development envrioment.
+    //Input res, the HTTP code to use, and the response message to output
+    //It might be more secure to be _less_ verbose in a production rather than a development envrioment.
     res.status(code).json({code, error: msg});
 };
 
@@ -70,7 +69,7 @@ function processError(res, code) {
     }
     switch (code) {
         //Aceepts the error code (expecting a string) and checks against the known list and sends information
-        //to the verboseError function. It leave error handling and error reporting as discreet actions.
+        //to the verboseError function. It leaves error handling and error reporting as discreet actions.
         //This should be sorted by likelyhood of error, but a list by http code is easier for debugging purposes
         case 'ENAMETOOLONG':
             verboseError(res, 400, 'Name too long');

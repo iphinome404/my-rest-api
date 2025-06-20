@@ -78,9 +78,6 @@ function processError(res, code) {
             //Custom error code for handling JSON files
             verboseError(res, 400, 'Invalid JSON format');
             break;
-        case 'ENOENT':
-            verboseError(res, 404, 'Not found');
-            break;
         case 'EACCES':
             verboseError(res, 403, 'Permission denied');
             break;
@@ -92,6 +89,9 @@ function processError(res, code) {
             break;
         case 'EISDIR':
             verboseError(res, 403, 'Is a directory');
+            break;
+        case 'ENOENT':
+            verboseError(res, 404, 'Not found');
             break;
         case 'EBADF':
             verboseError(res, 406, 'Bad file descriptor');
@@ -259,6 +259,7 @@ app.delete(API_PATH, (req, res) => {
         //Check if the folder we're trying to look inside exists.
         if (error) {
             //On error throw the correct error code to the processError function
+            //TODO Possibly change this to make ENOENT return 204 No Content, per RFC 7231
             processError(res, error.code);
             return;
             //Return as we have nothing to delete

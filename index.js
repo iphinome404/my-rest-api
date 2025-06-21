@@ -12,7 +12,7 @@ const path = require('path');
 //Needed for future directory traversel proteciton
 
 const API_PATH = "/:folder/:file";
-//Request files with a name not an extension so as always to return .json
+//Request files with a name (no extension.) Always append '.json'
 
 const express = require('express');
 const app = express();
@@ -21,16 +21,16 @@ const app = express();
 app.use(express.json());
 
 const listenPort = 3000
-//We may devise a way to find an open port to listen on and define it here later
+//TODO: consider dynamic port assignment
 
-//TODO write more utility functions
+//TODO: write more utility functions
 
 //Utility Functions
 
 function inputValidate(input) {
     //Function to validate that 'input' contains an acceptable file format.
-    //inputValidate returns false for unacceptable types.
-    //Currently, only JSON is accepted.
+    //Currently, ONLY JSON is accepted.
+    //Returns JSON string on success or false if invalid.
     //Keeping this inside a validate function allows easier adaption for more file formats later
     try {
         return JSON.stringify(input);
@@ -46,21 +46,21 @@ function inputValidate(input) {
 function verboseSuccess(res, code, data) {
     //Function to handle success responses and output them in JSON format.
     //Using a dedicated function means any future changes to success formatting can be made in one place.
-    //Inputs: the response object, code – the HTTP status code, data – the response payload.
+    //Inputs: res - the response object, code - the HTTP status code, data - the response payload.
     res.status(code).json(data);
 }
 
 function verboseError(res, code, msg) {
     //Function to receive error codes and output them in JSON format
     //Creating a deticated function allows future changes to the output format to be centralized
-    //Input res, the HTTP code to use, and the response message to output
-    //It might be more secure to be _less_ verbose in a production rather than a development envrioment.
+    //Inputs: res - the response object, code - the HTTP status code, msg - the response payload.
+    //It might be safer to be less verbose in production environments.
     res.status(code).json({code, error: msg});
 };
 
 function processError(res, code) {
     //Function to parse an error code and output it in human readable format and then send to the verboseError function
-    //Input res, and the nodejs error code
+    //Inputs: res - the response object, code - the nodejs error code
     if (!code) {
         //Check if the error.code is empty or at least falsey, throw an http 500 error.
         //This should be covered by the default ending in the switch statement but handles edge cases.
@@ -68,9 +68,10 @@ function processError(res, code) {
         return;
     }
     switch (code) {
-        //Aceepts the error code (expecting a string) and checks against the known list and sends information
+        //Accepts the error code (expecting a string) and checks against the known list and sends information
         //to the verboseError function. It leaves error handling and error reporting as discreet actions.
         //This should be sorted by likelyhood of error, but a list by http code is easier for debugging purposes
+        //Note: possible refinement, using an object map
         case 'ENAMETOOLONG':
             verboseError(res, 400, 'Name too long');
             break;
@@ -173,7 +174,8 @@ app.get(API_PATH, (req, res) => {
 app.post(API_PATH, (req, res) => {
     //Method for handling http POST requests
     //The request should be formated as /folder/file
-    //add a debugging line here to echo the request to the console for checking
+    //Debugging: uncomment the line below to log incoming requests
+    //console.log('POST request body:', req.body);
 
     const filePath = path.normalize(req.params.folder + "/" + req.params.file + ".json");
     //Normalize the requested file path and append '.json' since this API handles only JSON files.
@@ -208,7 +210,12 @@ app.post(API_PATH, (req, res) => {
                             //Call processError if we don't have write permission
                             processError(res, error.code);
                             return;
-                        } else verboseSuccess(res, 201, req.body);
+                        } else {
+                            //Report success by sending back req.body
+                            //RFC7231 specifies using status code 201 for new file creations
+                            verboseSuccess(res, 201, req.body);
+                            return;
+                        }
                         //Report success by sending back req.body
                         //RFC7231 specifies using status code 201 for new file creations
                     });
@@ -234,7 +241,10 @@ app.post(API_PATH, (req, res) => {
                         //Call processError if we don't have write permission
                         processError(res, error.code);
                         return;
-                    } else verboseSuccess(res, 201, req.body);
+                    } else {
+                        verboseSuccess(res, 201, req.body);
+                        return;
+                    }
                     //Report success by sending back req.body
                     //RFC7231 specifies using status code 201 for new file creations
                 });
@@ -259,8 +269,12 @@ app.delete(API_PATH, (req, res) => {
         //Check if the folder we're trying to look inside exists.
         if (error) {
             //On error throw the correct error code to the processError function
-            //TODO Possibly change this to make ENOENT return 204 No Content, per RFC 7231
-            processError(res, error.code);
+            if (error.code === 'ENOENT') {
+                //Note: Per RFC 7231, report success if file not found.
+                verboseSuccess(res, 204, 'No content');
+            } else {
+                processError(res, error.code);
+            }
             return;
             //Return as we have nothing to delete
         }
@@ -276,8 +290,13 @@ app.delete(API_PATH, (req, res) => {
             //Delete the json with the name requested in filePath, we always append .json so no attacker
             //should be able to delete other file extensions
             if (error) {
-                //Attempt to delete the file, throw an error code to the processError function if it doesn't work
-                processError(res, error.code);
+                if (error.code === 'ENOENT') {
+                    //Per RFC 7231, report success if file not found.
+                    verboseSuccess(res, 204, 'No content');
+                } else {
+                    //Attempt to delete the file, throw an error code to the processError function if it doesn't work
+                    processError(res, error.code);
+                }
                 return;
             }
             //File either didnt' exist or is now deleted but we're still inside the unlink
@@ -312,6 +331,8 @@ app.delete(API_PATH, (req, res) => {
 app.put(API_PATH, (req, res) => {
     //Handles HTTP PUT requests. Expects request path as /folder/file.
     //Per RFC 7231, creates the file if it doesn't exist.
+    //Note: For non-verbose success responses, 204 No Content is preferred.
+    //but here we send back req.body for clarity
 
     const filePath = path.normalize(req.params.folder + "/" + req.params.file + ".json");
     //Normalize the requested file path and append '.json' since this API handles only JSON files.
@@ -345,10 +366,11 @@ app.put(API_PATH, (req, res) => {
                             //Call processError if write permission is denied
                             processError(res, error.code);
                             return;
-                        } else
+                        } else {
+                            //Report success by sending back req.body
+                            //RFC7231 specifies using status code 201 for new file creations
                             verboseSuccess(res, 201, req.body);
-                        //Report success by sending back req.body
-                        //RFC7231 specifies using status code 201 for new file creations
+                        }
                     });
                 });
             } else {
@@ -357,13 +379,15 @@ app.put(API_PATH, (req, res) => {
             }
         } else {
             fs.writeFile(filePath, fileHolder, error => {
-                //If the already folder exists, write the validated file.
+                //If the folder already exists, write the validated file.
                 if (error) {
                     //Call processError if write permission is denied
                     processError(res, error.code);
                     return;
-                } else verboseSuccess(res, 200, req.body);
-                //Report success by sending back req.body
+                } else {
+                    //Report success by sending back req.body
+                    verboseSuccess(res, 200, req.body);
+                }
             });
         }
     })
@@ -372,6 +396,13 @@ app.put(API_PATH, (req, res) => {
 app.head(API_PATH, (req, res) => {
     //Handles HTTP HEAD requests. Expects request path as /folder/file.
     //Per RFC 7231, all HTTP servers must respond to both GET and HEAD
+
+    //Express automatically handles HEAD requests by calling the matching GET handler
+    //We implement this explicitly to comply with RFC 7231:
+    //“Do not assume the framework will handle semantic HTTP behavior for you.”
+    //and maintain predictable behavior if Express is swapped for another HTTP server.
+
+    // Current API only supports JSON files.
 
     const filePath = path.normalize(req.params.folder + "/" + req.params.file + ".json");
     //Normalize the requested file path and append '.json' since this API handles only JSON files.
@@ -387,11 +418,13 @@ app.head(API_PATH, (req, res) => {
         }
 
         //TODO: Output function that detects file format dynamically.
+
         //Current API only handles JSON files
         res.status(200).set({
             //.set is used to set HTTP headers
             'Content-Type': 'application/json',
             'Content-Length': stats.size,
+            //Note: For compressed content, Content-Length may differ.
         }).end();
         //.end is required to end the connection without sending a body
         //Expceted, per RFC 7231
@@ -399,7 +432,7 @@ app.head(API_PATH, (req, res) => {
 });
 
 app.use((req, res) => {
-    //This function serves as a simple catch-all for malformed requests
+    //Fallback to catch all unmatched requests.
     //Throws a simple 404, not found for any request the API isn't designed to process.
     processError(res, 'ENOENT');
 });

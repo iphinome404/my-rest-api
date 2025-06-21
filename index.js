@@ -427,9 +427,11 @@ app.head(API_PATH, (req, res) => {
             //Note: For compressed content, Content-Length may differ.
         }).end();
         //.end is required to end the connection without sending a body
-        //Expceted, per RFC 7231
+        //Expected, per RFC 7231
     });
 });
+
+//Note: consider whether app.options is needed or a security risk.
 
 app.use((req, res) => {
     //Fallback to catch all unmatched requests.

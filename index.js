@@ -9,21 +9,26 @@ const path = require('path');
 //Needed for path.normalize
 
 //const projectRoot = __dirname;
-//Needed for future directory traversel proteciton
+//Needed for directory traversel proteciton
 
 const API_PATH = "/:folder/:file";
 //Request files with a name (no extension.) Always append '.json'
+//Note: May change if/when support for more file types are added
 
 const express = require('express');
 const app = express();
 //Use express as the webserver
 
 app.use(express.json());
+//Parse incoming JSON payloads
 
 const listenPort = 3000
 //TODO: consider dynamic port assignment
 
-//TODO: write more utility functions
+const ALLOWED_METHODS = 'GET, POST, PUT, DELETE, HEAD, OPTIONS';
+//Needed for HTTP OPTIONS requests
+
+//Note: consider writing more utility functions
 
 //Utility Functions
 
@@ -47,6 +52,7 @@ function verboseSuccess(res, code, data) {
     //Function to handle success responses and output them in JSON format.
     //Using a dedicated function means any future changes to success formatting can be made in one place.
     //Inputs: res - the response object, code - the HTTP status code, data - the response payload.
+    //TODO add optional 204 handler for 'null' data
     res.status(code).json(data);
 }
 
@@ -128,7 +134,7 @@ function processError(res, code) {
 app.get(API_PATH, (req, res) => {
     //Method for handling http GET requests.
     //The request should be formated as /folder/file
-    //Per RFC 7231, all HTTP servers must respond to GET and HEAD requests
+    //Per RFC 7231 (section 4.1), all HTTP servers must respond to GET and HEAD requests
 
     const filePath = path.normalize(req.params.folder + "/" + req.params.file + ".json");
     //Normalize the requested file path and append '.json' since this API handles only JSON files.
@@ -212,12 +218,12 @@ app.post(API_PATH, (req, res) => {
                             return;
                         } else {
                             //Report success by sending back req.body
-                            //RFC7231 specifies using status code 201 for new file creations
+                            //RFC7231 (section 4.3.3) specifies using status code 201 for new file creations
                             verboseSuccess(res, 201, req.body);
                             return;
                         }
                         //Report success by sending back req.body
-                        //RFC7231 specifies using status code 201 for new file creations
+                        //RFC7231 (section 4.3.3) specifies using status code 201 for new file creations
                     });
                 });
             } else {
@@ -230,7 +236,7 @@ app.post(API_PATH, (req, res) => {
             fs.stat(filePath, (error, stats) => {
                 if (!error) {
                     //Throw a file already exists error,
-                    //RFC7231 specifies that HTTP PUT, not POST, should be used to overwrite.
+                    //RFC7231 (section 4.3.4) specifies that HTTP PUT, not POST, should be used to overwrite.
                     processError(res, 'EEXIST');
                     return;
                 }
@@ -246,7 +252,7 @@ app.post(API_PATH, (req, res) => {
                         return;
                     }
                     //Report success by sending back req.body
-                    //RFC7231 specifies using status code 201 for new file creations
+                    //RFC7231 (section 4.3.3) specifies using status code 201 for new file creations
                 });
             });
         }
@@ -395,11 +401,10 @@ app.put(API_PATH, (req, res) => {
 
 app.head(API_PATH, (req, res) => {
     //Handles HTTP HEAD requests. Expects request path as /folder/file.
-    //Per RFC 7231, all HTTP servers must respond to both GET and HEAD
+    //Per RFC 7231 (section 4.1), all HTTP servers must respond to both GET and HEAD
 
     //Express automatically handles HEAD requests by calling the matching GET handler
-    //We implement this explicitly to comply with RFC 7231:
-    //“Do not assume the framework will handle semantic HTTP behavior for you.”
+    //We implement this explicitly to comply with RFC 7231.
     //and maintain predictable behavior if Express is swapped for another HTTP server.
 
     // Current API only supports JSON files.
@@ -417,9 +422,8 @@ app.head(API_PATH, (req, res) => {
             return;
         }
 
-        //TODO: Output function that detects file format dynamically.
-
-        //Current API only handles JSON files
+        //Note: Current API only handles JSON files
+        //Note: For dynamic typing, use middleware
         res.status(200).set({
             //.set is used to set HTTP headers
             'Content-Type': 'application/json',
@@ -427,11 +431,34 @@ app.head(API_PATH, (req, res) => {
             //Note: For compressed content, Content-Length may differ.
         }).end();
         //.end is required to end the connection without sending a body
-        //Expected, per RFC 7231
+        //Expected, per RFC 7231 (section 4.3.2)
     });
 });
 
-//Note: consider whether app.options is needed or a security risk.
+app.options(API_PATH, (req, res) => {
+    //Method for handling HTTP OPTIONS requests Expects request path as /folder/file
+
+    res.set('Allow', ALLOWED_METHODS);
+    //.set is used to set HTTP headers
+    res.sendStatus(204);
+    //Code 204 sends success without a response body
+});
+
+app.options(/^\/.*$/, (req, res) => {
+    //Method for handling HTTP OPTIONS requests when only an asterik "*" is sent
+    //Per RFC 7231 (section 4.3.7), the "*" request is only useful as a
+    //"ping" or "no-op" type of method.
+
+    //'/^\/.*$/' needed as a catch-all instead of '*' due to regexp@8.x being extremely sttrict
+    //Just use it, don't fall down the rabit-hole I did working this out.
+
+    res.set('Allow', ALLOWED_METHODS);
+    //.set is used to set HTTP headers
+
+    res.sendStatus(204);
+    //Code 204 sends success without a response body
+});
+
 
 app.use((req, res) => {
     //Fallback to catch all unmatched requests.

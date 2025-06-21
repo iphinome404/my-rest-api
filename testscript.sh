@@ -18,7 +18,7 @@ curl -X POST http://localhost:3000/bar/foo \
   -d '{"key": "321"}'
 echo
 
-echo "Testing HEAD /bar/foo (will be verbose: should exist)"
+echo "Testing HEAD /bar/foo (should exist)"
 curl -I http://localhost:3000/bar/foo
 echo
 
@@ -26,11 +26,35 @@ echo "Testing GET /bar/foo (confirm created)"
 curl http://localhost:3000/bar/foo
 echo
 
+echo "Testing OPTIONS /bar/foo (specific match to API_PATH)"
+curl -X OPTIONS -i http://localhost:3000/bar/foo
+echo
+
+echo "Testing OPTIONS /some/other/path (should match catch-all)"
+curl -X OPTIONS -i http://localhost:3000/some/other/path
+echo
+
+echo "Testing OPTIONS / (root only, catch-all route should handle)"
+curl -X OPTIONS -i http://localhost:3000/
+echo
+
+echo "Testing OPTIONS /* (RFC style literal asterisk)"
+curl -X OPTIONS -i http://localhost:3000/\*
+echo
+
+echo "Testing OPTIONS with no path (using literal * in URL)"
+curl -X OPTIONS -i "http://localhost:3000/*"
+echo
+
+echo "Testing OPTIONS with URL-encoded asterisk"
+curl -X OPTIONS -i "http://localhost:3000/%2A"
+echo
+
 echo "Testing DELETE /bar/foo"
 curl -X DELETE http://localhost:3000/bar/foo
 echo
 
-echo "Testing HEAD /bar/foo (will be verbose: expect 404 after delete)"
+echo "Testing HEAD /bar/foo (expect 404 after delete)"
 curl -I http://localhost:3000/bar/foo
 echo
 
@@ -50,7 +74,7 @@ curl -X PUT http://localhost:3000/bar/foo \
   -d '{"key": "456"}'
 echo
 
-echo "Testing HEAD /bar/foo (will be verbose: should reflect updated length)"
+echo "Testing HEAD /bar/foo (should reflect updated length)"
 curl -I http://localhost:3000/bar/foo
 echo
 

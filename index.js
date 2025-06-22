@@ -259,7 +259,7 @@ app.post(API_PATH, (req, res) => {
                         return;
                     }
                     fs.writeFile(path.join(validatedPath, file), validatedInput, error => {
-                        //We made the folder now, its async so we write the file here
+                        //We made the folder now - it's async, so we write the file here
                         //Write the contents of the request body (which has been validated)
 
                         if (error) {
@@ -268,12 +268,10 @@ app.post(API_PATH, (req, res) => {
                             return;
                         } else {
                             //Report success by sending back req.body
-                            //Per, RFC 7231 (section 4.3.3) specifies using status code 201 for new file creations
+                            //RFC 7231 (section 4.3.3) specifies using status code 201 for new file creations
                             verboseSuccess(res, 201, req.body);
                             return;
                         }
-                        //Report success by sending back req.body
-                        //RFC 7231 (section 4.3.3) specifies using status code 201 for new file creations
                     });
                 });
             } else {
@@ -294,6 +292,7 @@ app.post(API_PATH, (req, res) => {
                     return;
                 }
                 //If the folder exists but not the file then write using validatedInput
+
                 fs.writeFile(path.join(validatedPath, file), validatedInput, error => {
                     //Since the folder exists, write req.body as a file
 
@@ -302,11 +301,12 @@ app.post(API_PATH, (req, res) => {
                         processError(res, error.code);
                         return;
                     } else {
+                        //Report success by sending back req.body
+                        //RFC 7231 (section 4.3.3) specifies using status code 201 for new file creations
+
                         verboseSuccess(res, 201, req.body);
                         return;
                     }
-                    //Report success by sending back req.body
-                    //RFC 7231 (section 4.3.3) specifies using status code 201 for new file creations
                 });
             });
         }

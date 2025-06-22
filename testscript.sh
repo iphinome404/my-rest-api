@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "Testing GET /foo/bar (expect key: 123)"
-curl http://localhost:3000/bar/foo
+curl http://localhost:3000/foo/bar
 echo
 
 echo "Testing GET /bar/foo (expect fail)"

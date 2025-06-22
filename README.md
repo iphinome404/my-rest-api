@@ -4,7 +4,7 @@ This is a work-in-progress REST API built in Node.js with Express, as a learning
 
 ## Features
 
-- Basic CRUD support: `GET`, `POST`, `PUT`, `DELETE`, 'OPTIONS' and `HEAD`
+- Basic CRUD support: `GET`, `POST`, `PUT`, `DELETE`, `OPTIONS` and `HEAD`
 - File-based storage (currently handles only `.json` files)
 - JSON validation and structured error handling
 - Comment-heavy for learning and documentation purposes

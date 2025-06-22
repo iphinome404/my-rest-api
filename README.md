@@ -12,7 +12,7 @@ This is a work-in-progress REST API built in Node.js with Express, as a learning
 ## Goals
 
 - Practice and demonstrate REST API fundamentals
-- Serve as a base for future improvements (e.g. middleware, database support, security hardening)
+- Serve as a base for future improvements
 
 ## Usage
 
@@ -24,4 +24,3 @@ This is a work-in-progress REST API built in Node.js with Express, as a learning
 ## Notes
 
 - This project is meant for educational and demonstration use only.
-- Security protections (e.g. directory traversal, auth) are not yet implemented.

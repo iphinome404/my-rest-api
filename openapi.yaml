@@ -1,0 +1,78 @@
+openapi: 3.1.0
+info:
+  title: My REST API
+  description: A simple educational REST API for JSON file storage.
+  version: 1.0.0
+
+paths:
+  /{folder}/{file}:
+    parameters:
+      - name: folder
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: file
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Get a JSON file
+      responses:
+        '200':
+          description: File contents
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          description: File or folder not found
+    post:
+      summary: Create a new JSON file
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: File created
+        '409':
+          description: File already exists
+    put:
+      summary: Replace or create a JSON file
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: File updated
+        '201':
+          description: File created
+    delete:
+      summary: Delete a JSON file
+      responses:
+        '200':
+          description: File deleted
+        '204':
+          description: File not found (no-op)
+    head:
+      summary: Check if a JSON file exists
+      responses:
+        '200':
+          description: File exists
+    options:
+      summary: Get allowed HTTP methods
+      responses:
+        '204':
+          description: No content
+
+components:
+  schemas:
+    GenericObject:
+      type: object

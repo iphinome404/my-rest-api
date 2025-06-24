@@ -1,5 +1,8 @@
 # Simple REST API (Educational Project)
 
+![Node.js](https://img.shields.io/badge/node-v18.19.1-brightgreen)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
 This is a work-in-progress REST API built in Node.js with Express, created as a learning and demonstration project.
 
 ## Features

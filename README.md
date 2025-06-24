@@ -47,6 +47,44 @@ docker build -t my-rest-api .
 docker run -p 3000:3000 my-rest-api
 ~~~
 
+## Usage
+
+### Get a JSON file
+
+~~~bash
+curl -H "Accept: application/json" http://localhost:3000/foldername/filename
+~~~
+
+### Head request (get headers only)
+
+~~~bash
+curl -I http://localhost:3000/foldername/filename
+~~~
+
+### Options request (check allowed methods)
+
+~~~bash
+curl -X OPTIONS http://localhost:3000/foldername/filename -i
+~~~
+
+### Create a new JSON file
+
+~~~bash
+curl -X POST -H "Content-Type: application/json" -d '{"key":"value"}' http://localhost:3000/foldername/filename
+~~~
+
+### Update a JSON file
+
+~~~bash
+curl -X PUT -H "Content-Type: application/json" -d '{"key":"new value"}' http://localhost:3000/foldername/filename
+~~~
+
+### Delete a JSON file
+
+~~~bash
+curl -X DELETE http://localhost:3000/foldername/filename
+~~~
+
 ## Notes
 
 - This project is intended for educational and demonstration use only.

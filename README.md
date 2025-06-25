@@ -5,7 +5,7 @@
 
 Simple REST API (Educational Project)
 
-This is a work-in-progress REST API built in Node.js with Express, as a learning and demonstration project.
+A clean, minimal REST API built with Node.js and Express demonstrating robust file-based JSON CRUD operations, error handling, and HTTP compliance — designed for learning, extensibility, and real-world applicability.
 
 ## Features
 
@@ -17,8 +17,11 @@ This is a work-in-progress REST API built in Node.js with Express, as a learning
 
 ## Goals
 
-- Practice and demonstrate REST API fundamentals
 - Serve as a base for future improvements
+- Write clean, well-documented code as a learning aid and foundation for scalable APIs
+- Demonstrate mastery of REST principles and HTTP methods (GET, POST, PUT, DELETE, OPTIONS, HEAD)
+- Implement secure and structured file-based JSON storage with validation
+- Provide meaningful error responses aligned with HTTP standards
 
 ## Usage
 
@@ -47,7 +50,7 @@ docker build -t my-rest-api .
 docker run -p 3000:3000 my-rest-api
 ~~~
 
-## Usage
+## API Usage Examples
 
 ### Get a JSON file
 
@@ -89,6 +92,9 @@ curl -X DELETE http://localhost:3000/foldername/filename
 
 - This project is intended for educational and demonstration use only.
 - Uses Node.js version 18.19.1.
+- Express
+- Uses Docker for containerization (dockerfile included)
+- Uses JSON file storage (no database)
 
 ## License
 

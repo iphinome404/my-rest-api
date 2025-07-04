@@ -12,17 +12,17 @@ A clean, minimal REST API built with Node.js and Express demonstrating robust fi
 - RESTful API built with Express.js
 - Basic CRUD support: GET, POST, PUT, DELETE, plus OPTIONS and HEAD
 - File-based storage (currently handles only `.json` files)
-- RFC 7231 compliant
+- Uses proper HTTP methods and status codes (RFC 7231)
 - JSON validation and structured error handling
 - Comment-heavy for maintainability and educational purposes
 - Includes basic test script for endpoint validation
-- Deployment configuration with dockerfile and deployment.yaml
+- Deployment configuration with Dockerfile and deployment.yaml
 
 ## Goals
 
 - Serve as a base for future improvements
 - Write clean, well-documented code as a learning aid and foundation for scalable APIs
-- Demonstrate mastery of REST principles and HTTP methods (GET, POST, PUT, DELETE, OPTIONS, HEAD)
+- Demonstrate a working understanding of REST principles and proper use of HTTP methods (GET, POST, PUT, DELETE, OPTIONS, HEAD)
 - Implement structured file-based JSON storage with validation
 - Provide meaningful error responses aligned with HTTP standards
 
@@ -93,11 +93,10 @@ curl -X DELETE http://localhost:3000/foldername/filename
 
 ## Notes
 
-- This project is intended for educational and demonstration use only.
-- Uses Node.js version 18.19.1.
-- Express
-- Uses Docker for containerization (dockerfile included)
-- Uses JSON file storage (no database)
+- Intended for educational/demo use — not production-ready
+- Built on Node.js v18.19.1 and Express
+- Uses Docker for containerization (Dockerfile included)
+- Stores data in `.json` files (no database)
 
 ## License
 

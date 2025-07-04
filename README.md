@@ -9,18 +9,21 @@ A clean, minimal REST API built with Node.js and Express demonstrating robust fi
 
 ## Features
 
-- Basic CRUD support: GET, POST, PUT, DELETE, OPTIONS, and HEAD
+- RESTful API built with Express.js
+- Basic CRUD support: GET, POST, PUT, DELETE, plus OPTIONS and HEAD
 - File-based storage (currently handles only `.json` files)
+- RFC 7231 compliant
 - JSON validation and structured error handling
-- Comment-heavy for learning and documentation purposes
-- Includes a test script and Dockerfile
+- Comment-heavy for maintainability and educational purposes
+- Includes basic test script for endpoint validation
+- Deployment configuration with dockerfile and deployment.yaml
 
 ## Goals
 
 - Serve as a base for future improvements
 - Write clean, well-documented code as a learning aid and foundation for scalable APIs
 - Demonstrate mastery of REST principles and HTTP methods (GET, POST, PUT, DELETE, OPTIONS, HEAD)
-- Implement secure and structured file-based JSON storage with validation
+- Implement structured file-based JSON storage with validation
 - Provide meaningful error responses aligned with HTTP standards
 
 ## Usage
